@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:complex_api_parsing/book_detail.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
@@ -32,12 +33,8 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   BookResponse? response;
   bool isLoading = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _getBooks();
-  }
+  TextEditingController textEditingController = TextEditingController();
+  String get searchKey => textEditingController.text;
 
   _getBooks() async {
     setState(() {
@@ -45,7 +42,7 @@ class _MyHomePageState extends State<MyHomePage> {
     });
     try {
       var url =
-          Uri.parse("https://www.googleapis.com/books/v1/volumes?q=flutter");
+          Uri.parse("https://www.googleapis.com/books/v1/volumes?q=$searchKey");
       var response = await http.get(url);
       var responseSTR = response.body;
       var decodedJson = jsonDecode(responseSTR) as Map<String, dynamic>;
@@ -54,12 +51,17 @@ class _MyHomePageState extends State<MyHomePage> {
       });
     } catch (e) {
       print(e);
+      setState(() {
+        this.response = null;
+      });
     } finally {
       setState(() {
         isLoading = false;
       });
     }
   }
+
+  void onSearchButton() => _getBooks();
 
   @override
   Widget build(BuildContext context) {
@@ -71,15 +73,49 @@ class _MyHomePageState extends State<MyHomePage> {
           ),
         ),
       ),
-      body: ListView.builder(
-        itemCount: response?.items?.length ?? 0,
-        itemBuilder: (_, index) => ListTile(
-          title: Text(response?.items![index].volumeInfo?.title ?? ''),
-          subtitle:
-              Text(response?.items![index].volumeInfo?.author?.first ?? ''),
-          leading: Image.network(
-              response?.items![index].volumeInfo?.imageLinks?.thumbnail ?? ''),
-        ),
+      body: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: textEditingController,
+                ),
+              ),
+              ElevatedButton(
+                onPressed: onSearchButton,
+                child: const Text('Search'),
+              ),
+            ],
+          ),
+          if (!isLoading)
+            Expanded(
+              child: ListView.builder(
+                itemCount: response?.items?.length ?? 0,
+                itemBuilder: (_, index) => ListTile(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => BookDetail(
+                            bookFromList: (response?.items![index])!),
+                      ),
+                    );
+                  },
+                  title: Text(response?.items![index].volumeInfo?.title ?? ''),
+                  subtitle: Text(
+                      response?.items![index].volumeInfo?.author?.first ?? ''),
+                  leading: Image.network(response
+                          ?.items![index].volumeInfo?.imageLinks?.thumbnail ??
+                      ''),
+                ),
+              ),
+            ),
+          if (!isLoading)
+            const Center(
+              child: CircularProgressIndicator(),
+            ),
+        ],
       ),
     );
   }
